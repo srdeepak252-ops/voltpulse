@@ -10,13 +10,12 @@ import {
   HardHat,
   ChevronDown,
   UserCheck,
-  Home
 } from 'lucide-react';
 import { AppUser } from '../types';
 
 interface NavbarProps {
-  activeTab: 'start' | 'resident' | 'dispatcher';
-  setActiveTab: (tab: 'start' | 'resident' | 'dispatcher') => void;
+  activeTab: 'resident' | 'dispatcher';
+  setActiveTab: (tab: 'resident' | 'dispatcher') => void;
   broadcastMessage: string;
   currentUser: AppUser | null;
   onLogout: () => void;
@@ -43,9 +42,9 @@ export function Navbar({
       <header className="h-16 border-b border-slate-800 bg-[#0B111E] px-4 sm:px-6 flex items-center justify-between flex-shrink-0 sticky top-0 z-40">
         <button
           id="nav-logo-btn"
-          onClick={() => setActiveTab('start')}
+          onClick={() => setActiveTab('resident')}
           className="flex items-center space-x-3 group cursor-pointer focus:outline-none text-left"
-          title="Return to VoltPulse Start-Up Page"
+          title="VoltPulse Locality Grid"
         >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-600 to-blue-500 flex items-center justify-center shadow-lg shadow-cyan-600/25 shrink-0 group-hover:scale-105 transition">
             <Zap className="w-6 h-6 text-white fill-current" />
@@ -64,20 +63,6 @@ export function Navbar({
 
         {/* Persona View Switcher */}
         <div className="flex items-center bg-slate-900 p-1 rounded-xl border border-slate-800">
-          <button
-            id="role-tab-home"
-            onClick={() => setActiveTab('start')}
-            className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
-              activeTab === 'start'
-                ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-600/30'
-                : 'text-slate-400 hover:text-slate-200'
-            }`}
-            title="Start-Up Page & Overview"
-          >
-            <Home className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Overview</span>
-          </button>
-
           <button
             id="role-tab-resident"
             onClick={() => setActiveTab('resident')}

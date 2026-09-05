@@ -6,8 +6,6 @@ import { ResidentPortal } from './components/ResidentPortal';
 import { DispatcherDashboard } from './components/DispatcherDashboard';
 import { LoginPage } from './components/LoginPage';
 import { UserManagementModal } from './components/UserManagementModal';
-import { StartupPage } from './components/StartupPage';
-import { ReportOutageModal } from './components/ReportOutageModal';
 
 export default function App() {
   // User Authentication & Directory State
@@ -16,9 +14,8 @@ export default function App() {
   const [isLoginPageOpen, setIsLoginPageOpen] = useState<boolean>(false);
   const [loginInitialRole, setLoginInitialRole] = useState<UserRole>('user');
   const [isUserManagementOpen, setIsUserManagementOpen] = useState<boolean>(false);
-  const [isStartupReportModalOpen, setIsStartupReportModalOpen] = useState<boolean>(false);
 
-  const [activeTab, setActiveTab] = useState<'start' | 'resident' | 'dispatcher'>('start');
+  const [activeTab, setActiveTab] = useState<'resident' | 'dispatcher'>('resident');
   const [incidents, setIncidents] = useState<OutageIncident[]>(INITIAL_INCIDENTS);
   const [selectedIncident, setSelectedIncident] = useState<OutageIncident>(INITIAL_INCIDENTS[0]);
   const [trackedTicketCode, setTrackedTicketCode] = useState<string>('OUT-8492');
@@ -217,38 +214,6 @@ export default function App() {
             initialRole={loginInitialRole}
             onCancel={currentUser ? () => setIsLoginPageOpen(false) : undefined}
           />
-        ) : activeTab === 'start' ? (
-          <StartupPage
-            incidents={incidents}
-            currentUser={currentUser}
-            users={users}
-            onSelectRole={(role) => {
-              if (role === 'dispatcher' && currentUser?.role !== 'admin') {
-                setLoginInitialRole('admin');
-                setIsLoginPageOpen(true);
-              } else {
-                setActiveTab(role);
-              }
-            }}
-            onOpenReportModal={() => setIsStartupReportModalOpen(true)}
-            onTrackTicket={(ticketCode) => {
-              setTrackedTicketCode(ticketCode);
-              const found = incidents.find(
-                (i) => i.code.toUpperCase() === ticketCode.toUpperCase()
-              );
-              if (found) setSelectedIncident(found);
-              setActiveTab('resident');
-            }}
-            onSwitchUser={(user) => {
-              setCurrentUser(user);
-            }}
-            onSimulateScada={handleSimulateScadaEvent}
-            onOpenUserDirectory={() => setIsUserManagementOpen(true)}
-            onOpenLogin={(role) => {
-              setLoginInitialRole(role || 'user');
-              setIsLoginPageOpen(true);
-            }}
-          />
         ) : activeTab === 'resident' ? (
           <ResidentPortal
             incidents={incidents}
@@ -280,20 +245,6 @@ export default function App() {
           />
         )}
       </main>
-
-      {/* STARTUP OUTAGE REPORT MODAL */}
-      {isStartupReportModalOpen && (
-        <ReportOutageModal
-          incidents={incidents}
-          currentUser={currentUser}
-          onClose={() => setIsStartupReportModalOpen(false)}
-          onSubmitReport={(updatedIncidents, clusterResult) => {
-            handleNewReport(updatedIncidents, clusterResult);
-            setIsStartupReportModalOpen(false);
-            setActiveTab('resident');
-          }}
-        />
-      )}
 
       {/* USER MANAGEMENT & DIRECTORY MODAL */}
       {isUserManagementOpen && (
