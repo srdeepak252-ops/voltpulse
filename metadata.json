@@ -1,0 +1,6 @@
+{
+  "name": "VoltPulse",
+  "description": "Locality Grid Intelligence & Outage Management System with Google Maps GIS spatial mapping, resident outage reporting, and utility dispatcher command center.",
+  "requestFramePermissions": ["geolocation"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
