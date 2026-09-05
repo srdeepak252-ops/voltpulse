@@ -72,7 +72,7 @@ export function GoogleGridMap({
   gridAssets = [],
   crews = [],
   onOpenReportModal,
-  initialCenter = { lat: 34.0522, lng: -118.2437 },
+  initialCenter = { lat: 12.9716, lng: 77.6408 },
   initialZoom = 13,
   height = '100%',
   showControlsBar = true,

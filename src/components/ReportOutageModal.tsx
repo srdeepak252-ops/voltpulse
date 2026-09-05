@@ -43,37 +43,49 @@ export function ReportOutageModal({
   // Simulated GPS state
   const [gpsDetected, setGpsDetected] = useState(false);
   const [coordinates, setCoordinates] = useState<{ lat: number; lng: number }>({
-    lat: 34.0535,
-    lng: -118.2425,
+    lat: 12.9785,
+    lng: 77.6410,
   });
 
-  // Preset location quick picks to test clustering easily
+  // Preset location quick picks in Bangalore to test clustering easily
   const quickPickLocations = [
     {
-      label: 'Near Maple Ave (Clusters with OUT-8492)',
-      address: '422 Maple Ave, Ward 9',
-      lat: 34.0526,
-      lng: -118.2435,
+      label: 'Indiranagar 100 Ft Rd (Clusters with OUT-8492)',
+      address: '422 100 Feet Road, Indiranagar Stage 2, Bengaluru',
+      lat: 12.9785,
+      lng: 77.6410,
     },
     {
-      label: 'Near Riverdale (Clusters with OUT-8495)',
-      address: '92 Riverdale Blvd, Sector B',
-      lat: 34.0628,
-      lng: -118.2545,
+      label: 'Koramangala 80 Ft Rd (Clusters with OUT-8495)',
+      address: '92 80 Feet Road, 4th Block Koramangala, Bengaluru',
+      lat: 12.9355,
+      lng: 77.6248,
     },
     {
-      label: 'New Area: Westside Heights (Spawns New Cluster)',
-      address: '880 Westview Terrace, Ward 14',
-      lat: 34.081,
-      lng: -118.285,
+      label: 'Whitefield Hope Farm (Clusters with OUT-8501)',
+      address: '18 ECC Road, near Hope Farm Circle, Whitefield, Bengaluru',
+      lat: 12.9865,
+      lng: 77.7342,
+    },
+    {
+      label: 'New Area: HSR Layout Sector 1 (Spawns New Cluster)',
+      address: '880 27th Main Road, HSR Layout Sector 1, Bengaluru',
+      lat: 12.9125,
+      lng: 77.6448,
+    },
+    {
+      label: 'New Area: Malleshwaram 8th Cross (Spawns New Cluster)',
+      address: '144 Margosa Road, 8th Cross Malleshwaram, Bengaluru',
+      lat: 13.0035,
+      lng: 77.5701,
     },
   ];
 
   const handleSimulateGPS = () => {
     setGpsDetected(true);
-    // Picks a realistic nearby coordinate in the ward
-    setCoordinates({ lat: 34.0528, lng: -118.2439 });
-    setAddress('442 Elm Wood Lane, Ward 9');
+    // Picks a realistic nearby coordinate in Indiranagar, Bangalore
+    setCoordinates({ lat: 12.9790, lng: 77.6412 });
+    setAddress('244 Chinmaya Mission Hospital Rd, Indiranagar, Bengaluru');
   };
 
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -101,7 +113,7 @@ export function ReportOutageModal({
         username: currentUser?.username,
         residentName: residentName.trim() || undefined,
         contactPhone: contactPhone.trim() || undefined,
-        addressText: address || 'Ward 9 Locality',
+        addressText: address || 'Indiranagar Locality, Bengaluru',
         hasHazard: hazard,
         notes: combinedNotes,
         lat: coordinates.lat,
@@ -225,7 +237,7 @@ export function ReportOutageModal({
               id="address-input"
               type="text"
               required
-              placeholder="e.g. 402 Maple Ave, Ward 9"
+              placeholder="e.g. 402 100 Feet Road, Indiranagar, Bengaluru"
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               className="w-full bg-slate-950 border border-slate-700/80 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-cyan-500 transition"

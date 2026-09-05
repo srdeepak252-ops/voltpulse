@@ -59,9 +59,9 @@ export function LoginPage({ users, onLogin, initialRole = 'user', onCancel }: Lo
             .join(' '),
           role: selectedRole,
           email: `${trimmed}@gridpulse.local`,
-          meterNumber: selectedRole === 'user' ? `MTR-${Math.floor(100000 + Math.random() * 900000)}` : undefined,
-          locality: selectedRole === 'user' ? 'Ward 9 Locality' : 'Municipal Control Room',
-          badgeTitle: selectedRole === 'admin' ? 'Duty Grid Dispatcher' : 'Resident Citizen',
+          meterNumber: selectedRole === 'user' ? `BLR-${Math.floor(100000 + Math.random() * 900000)}` : undefined,
+          locality: selectedRole === 'user' ? 'Indiranagar Stage 2, Bengaluru' : 'BESCOM Central Control Room, Bengaluru',
+          badgeTitle: selectedRole === 'admin' ? 'BESCOM Grid Dispatcher' : 'Bengaluru Resident',
         };
         onLogin(newUser);
       }

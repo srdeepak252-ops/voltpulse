@@ -34,24 +34,26 @@ export default function App() {
     const newIncident: OutageIncident = {
       id: `inc-scada-${Date.now()}`,
       code: scadaCode,
-      substation: 'West Ridge Breaker 11kV-B3',
-      locality: 'Highland Ridge & Industrial Park',
+      substation: 'BESCOM Malleshwaram 66/11kV Substation - Feeder M-02',
+      locality: 'Malleshwaram 8th Cross & Margosa Road, Bengaluru',
       severity: 'HIGH',
       status: 'TRIAGED',
       affectedMeters: 620,
-      criticalFacilities: ['Water Filtration Station 04'],
+      criticalFacilities: ['KC General Hospital Malleshwaram (Backup Power)'],
       reportedAt: 'Just now (Automated Telemetry)',
       etr: 'In 1h 30m',
       crewAssigned: null,
-      lat: 34.058,
-      lng: -118.268,
+      lat: 13.0035,
+      lng: 77.5701,
       hazardReported: false,
       causeCategory: 'SCADA_BREAKER_TRIP',
     };
 
     setIncidents((prev) => [newIncident, ...prev]);
     setSelectedIncident(newIncident);
-    setBroadcastMessage(`SCADA Alert: Automatic breaker trip detected on West Ridge 11kV-B3. 620 meters cut.`);
+    setBroadcastMessage(
+      `SCADA Alert: Automatic breaker trip detected on Malleshwaram Feeder M-02. 620 meters cut.`
+    );
   };
 
   const handleNewReport = (
@@ -311,7 +313,7 @@ export default function App() {
             <span>LIVE TELEMETRY: 254 pkts/sec</span>
           </div>
           <span className="h-3 w-px bg-slate-800 hidden xs:inline-block" />
-          <div className="hidden xs:inline-block">GIS COORDINATES: 34.052, -118.243</div>
+          <div className="hidden xs:inline-block">GIS: 12.9716° N, 77.5946° E (BENGALURU BESCOM GRID)</div>
         </div>
         <div className="font-mono text-slate-600 uppercase tracking-widest text-[10px]">
           VoltPulse Infrastructure Node 0x98A1

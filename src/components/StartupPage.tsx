@@ -97,7 +97,7 @@ export function StartupPage({
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="font-semibold tracking-wide">MUNICIPAL SMART GRID OS v4.2</span>
             <span className="text-slate-600">•</span>
-            <span className="text-slate-400">SECTOR 9 & CENTRAL METRO</span>
+            <span className="text-slate-400">BENGALURU BESCOM METRO GRID</span>
           </div>
 
           {/* MAIN HEADLINE */}
@@ -352,7 +352,7 @@ export function StartupPage({
                   }}
                   className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 cursor-pointer font-mono"
                 >
-                  <span>Continue as Elena Rostova (@elena_r)</span>
+                  <span>Continue as Priya Sharma (@priya_sharma)</span>
                   <ChevronRight className="w-3 h-3" />
                 </button>
               </div>
@@ -459,7 +459,7 @@ export function StartupPage({
               <h2 className="text-lg sm:text-xl font-bold text-white">Live Outage Watchlist (Locality Clusters)</h2>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Active electrical distribution incidents triaged across Ward 9, Sector B, and Industrial corridors.
+              Active electrical distribution incidents triaged across Indiranagar, Koramangala, Whitefield, and Bengaluru urban circles.
             </p>
           </div>
 

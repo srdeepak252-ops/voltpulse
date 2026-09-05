@@ -189,7 +189,7 @@ export function AssignUsernameModal({
               type="text"
               value={residentName}
               onChange={(e) => setResidentName(e.target.value)}
-              placeholder="e.g. Elena Rostova"
+              placeholder="e.g. Priya Sharma"
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white focus:outline-none focus:border-cyan-500 transition"
             />
           </div>
