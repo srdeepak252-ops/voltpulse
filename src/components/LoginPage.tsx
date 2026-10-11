@@ -99,7 +99,7 @@ export function LoginPage({ users, onLogin, initialRole = 'user', onCancel }: Lo
             <label className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">
               Select Your Access Role
             </label>
-            <div className="grid grid-cols-2 gap-2 p-1.5 bg-slate-950/80 border border-slate-800 rounded-2xl">
+            <div className="grid grid-cols-3 gap-2 p-1.5 bg-slate-950/80 border border-slate-800 rounded-2xl">
               <button
                 type="button"
                 id="login-role-tab-user"
@@ -108,14 +108,32 @@ export function LoginPage({ users, onLogin, initialRole = 'user', onCancel }: Lo
                   setUsernameInput('');
                   setErrorMsg(null);
                 }}
-                className={`py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
                   selectedRole === 'user'
                     ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-600/30 border border-cyan-400/40'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
                 }`}
               >
-                <User className="w-4 h-4" />
-                <span>Resident Citizen</span>
+                <User className="w-4 h-4 shrink-0" />
+                <span className="text-center sm:text-left">Resident</span>
+              </button>
+
+              <button
+                type="button"
+                id="login-role-tab-crew"
+                onClick={() => {
+                  setSelectedRole('crew');
+                  setUsernameInput('');
+                  setErrorMsg(null);
+                }}
+                className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
+                  selectedRole === 'crew'
+                    ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 border border-amber-400/40'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
+                }`}
+              >
+                <HardHat className="w-4 h-4 shrink-0" />
+                <span className="text-center sm:text-left">Field Crew</span>
               </button>
 
               <button
@@ -126,14 +144,14 @@ export function LoginPage({ users, onLogin, initialRole = 'user', onCancel }: Lo
                   setUsernameInput('');
                   setErrorMsg(null);
                 }}
-                className={`py-3 px-4 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-2 cursor-pointer ${
+                className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-all flex flex-col sm:flex-row items-center justify-center gap-1.5 cursor-pointer ${
                   selectedRole === 'admin'
-                    ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30 border border-amber-400/40'
+                    ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/30 border border-blue-400/40'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900'
                 }`}
               >
-                <HardHat className="w-4 h-4" />
-                <span>Utility Admin / Dispatcher</span>
+                <ShieldCheck className="w-4 h-4 shrink-0" />
+                <span className="text-center sm:text-left">Admin</span>
               </button>
             </div>
           </div>
@@ -142,13 +160,17 @@ export function LoginPage({ users, onLogin, initialRole = 'user', onCancel }: Lo
           <div
             className={`p-3.5 rounded-xl border mb-6 text-xs flex items-start gap-3 transition-colors ${
               selectedRole === 'admin'
+                ? 'bg-blue-950/25 border-blue-800/40 text-blue-300'
+                : selectedRole === 'crew'
                 ? 'bg-amber-950/25 border-amber-800/40 text-amber-300'
                 : 'bg-cyan-950/25 border-cyan-800/40 text-cyan-300'
             }`}
           >
             <div className="mt-0.5 shrink-0">
               {selectedRole === 'admin' ? (
-                <ShieldCheck className="w-4 h-4 text-amber-400" />
+                <ShieldCheck className="w-4 h-4 text-blue-400" />
+              ) : selectedRole === 'crew' ? (
+                <HardHat className="w-4 h-4 text-amber-400" />
               ) : (
                 <CheckCircle2 className="w-4 h-4 text-cyan-400" />
               )}
@@ -156,12 +178,16 @@ export function LoginPage({ users, onLogin, initialRole = 'user', onCancel }: Lo
             <div>
               <span className="font-bold block">
                 {selectedRole === 'admin'
-                  ? 'Administrator & Dispatcher Level 3 Clearance'
+                  ? 'Administrator & Dispatch Controller'
+                  : selectedRole === 'crew'
+                  ? 'Field Dispatch Crew & Lineman Terminal'
                   : 'Citizen Resident Self-Service Portal'}
               </span>
               <p className="text-[11px] text-slate-400 mt-0.5">
                 {selectedRole === 'admin'
-                  ? 'Access operational GIS map, inspect live citizen reports, and reassign usernames across reported issues.'
+                  ? 'Manage GIS SCADA telemetry, review crew reports, mark problems as solved, and broadcast grid restoration to everyone.'
+                  : selectedRole === 'crew'
+                  ? 'Select your problem location, transmit live field diagnostics and repairs status to the admin, and verify safety clearances.'
                   : 'Track household electricity status, report outages, receive restoration ETAs, and review local safety advisories.'}
               </p>
             </div>
@@ -181,7 +207,11 @@ export function LoginPage({ users, onLogin, initialRole = 'user', onCancel }: Lo
                 htmlFor="login-username"
                 className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-1"
               >
-                {selectedRole === 'admin' ? 'Admin Username / Dispatcher ID' : 'Resident Username / Meter ID'}
+                {selectedRole === 'admin'
+                  ? 'Admin Username / Dispatcher ID'
+                  : selectedRole === 'crew'
+                  ? 'Crew Member Username / Lineman ID'
+                  : 'Resident Username / Meter ID'}
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-500">
@@ -194,7 +224,9 @@ export function LoginPage({ users, onLogin, initialRole = 'user', onCancel }: Lo
                   placeholder={
                     selectedRole === 'admin'
                       ? 'e.g. johndoe_admin or sarah_dispatch'
-                      : 'e.g. elena_r or MTR-994102'
+                      : selectedRole === 'crew'
+                      ? 'e.g. ramesh_crew7 or david_crew3'
+                      : 'e.g. priya_sharma or BLR-994102'
                   }
                   value={usernameInput}
                   onChange={(e) => setUsernameInput(e.target.value)}
@@ -234,6 +266,8 @@ export function LoginPage({ users, onLogin, initialRole = 'user', onCancel }: Lo
               disabled={isSubmitting}
               className={`w-full py-3 px-4 rounded-xl text-xs sm:text-sm font-bold uppercase tracking-wider text-white transition-all flex items-center justify-center gap-2 cursor-pointer shadow-lg ${
                 selectedRole === 'admin'
+                  ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-900/30'
+                  : selectedRole === 'crew'
                   ? 'bg-amber-600 hover:bg-amber-500 shadow-amber-900/30'
                   : 'bg-cyan-600 hover:bg-cyan-500 shadow-cyan-900/30'
               } disabled:opacity-50`}
@@ -243,6 +277,8 @@ export function LoginPage({ users, onLogin, initialRole = 'user', onCancel }: Lo
                   ? 'Verifying Node Credentials...'
                   : selectedRole === 'admin'
                   ? 'Authenticate Dispatcher & Enter Dashboard'
+                  : selectedRole === 'crew'
+                  ? 'Authenticate Crew & Open Field Terminal'
                   : 'Sign In to Resident Outage Portal'}
               </span>
               <ArrowRight className="w-4 h-4" />
@@ -252,7 +288,13 @@ export function LoginPage({ users, onLogin, initialRole = 'user', onCancel }: Lo
           {/* QUICK DEMO ONE-CLICK SELECTOR */}
           <div className="mt-6 pt-5 border-t border-slate-800">
             <span className="text-[10px] font-bold uppercase tracking-widest text-slate-400 block mb-2">
-              Quick 1-Click Demo Profiles ({selectedRole === 'admin' ? 'Admin Controllers' : 'Residents'})
+              Quick 1-Click Demo Profiles ({
+                selectedRole === 'admin'
+                  ? 'Admin Controllers'
+                  : selectedRole === 'crew'
+                  ? 'Field Crew Units'
+                  : 'Residents'
+              })
             </span>
             <div className="space-y-1.5">
               {demoUsers.map((u) => (

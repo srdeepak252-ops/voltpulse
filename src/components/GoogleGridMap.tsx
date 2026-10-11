@@ -26,10 +26,58 @@ import {
   Truck,
   RotateCcw,
   Sliders,
+  SlidersHorizontal,
   MapPin,
-  Cpu
+  Cpu,
+  Flame,
+  Activity,
+  ChevronDown,
+  ChevronUp,
+  Sparkles,
+  Play,
+  Pause,
+  FastForward,
+  Gauge,
+  ArrowUpRight,
+  RefreshCw,
+  Wrench,
 } from 'lucide-react';
 import { OutageIncident, GridAsset, DispatchCrew, CustomerReport } from '../types';
+import { GoogleHeatmapLayer } from './GoogleHeatmapLayer';
+import { GoogleCrewRouteLayer } from './GoogleCrewRouteLayer';
+import { generateIncidentHeatmapPoints } from '../utils/heatmapData';
+import { getCardinalDirection } from '../utils/crewSimulation';
+
+const HEATMAP_GRADIENTS: Record<'thermal' | 'crimson' | 'neon', string[]> = {
+  thermal: [
+    'rgba(0, 255, 255, 0)',
+    'rgba(0, 255, 255, 1)',
+    'rgba(0, 191, 255, 1)',
+    'rgba(0, 127, 255, 1)',
+    'rgba(0, 255, 0, 1)',
+    'rgba(255, 255, 0, 1)',
+    'rgba(255, 128, 0, 1)',
+    'rgba(255, 0, 0, 1)',
+  ],
+  crimson: [
+    'rgba(255, 255, 0, 0)',
+    'rgba(255, 235, 59, 1)',
+    'rgba(255, 152, 0, 1)',
+    'rgba(244, 67, 54, 1)',
+    'rgba(213, 0, 0, 1)',
+    'rgba(136, 14, 79, 1)',
+  ],
+  neon: [
+    'rgba(102, 0, 255, 0)',
+    'rgba(102, 0, 255, 1)',
+    'rgba(0, 204, 255, 1)',
+    'rgba(0, 255, 153, 1)',
+    'rgba(255, 255, 0, 1)',
+    'rgba(255, 0, 128, 1)',
+  ],
+};
+
+const GOOGLE_MAPS_LIBRARIES: ('marker')[] = ['marker'];
 
 interface GoogleGridMapProps {
   incidents: OutageIncident[];
@@ -37,30 +85,46 @@ interface GoogleGridMapProps {
   onSelectIncident: (incident: OutageIncident) => void;
   gridAssets?: GridAsset[];
   crews?: DispatchCrew[];
+  onUpdateCrews?: (crews: DispatchCrew[]) => void;
+  onSelectCrew?: (crew: DispatchCrew) => void;
+  onDispatchCrew?: (crewId: string, incidentId: string) => void;
+  onStepCrewSimulation?: () => void;
+  onResetCrews?: () => void;
+  isSimulatingCrews?: boolean;
+  onToggleSimulatingCrews?: (active: boolean) => void;
+  crewSimSpeed?: number;
+  onChangeSimSpeed?: (speed: number) => void;
   onOpenReportModal?: () => void;
   initialCenter?: { lat: number; lng: number };
   initialZoom?: number;
   height?: string;
   showControlsBar?: boolean;
+  showHeatmap?: boolean;
+  onToggleHeatmap?: (show: boolean) => void;
 }
 
 // Map Controller for programmatic camera movements
 function MapCameraController({
   selectedIncident,
+  focusedCrew,
 }: {
   selectedIncident: OutageIncident | null;
+  focusedCrew: DispatchCrew | null;
 }) {
-  const map = useMap('gmp-main-map');
+  const map = useMap();
 
   useEffect(() => {
-    if (!map || !selectedIncident) return;
-    map.panTo({ lat: selectedIncident.lat, lng: selectedIncident.lng });
-    // Smooth zoom if too far
-    const currentZoom = map.getZoom() || 13;
-    if (currentZoom < 14) {
-      map.setZoom(14);
+    if (!map) return;
+    if (focusedCrew && focusedCrew.lat && focusedCrew.lng) {
+      map.panTo({ lat: focusedCrew.lat, lng: focusedCrew.lng });
+    } else if (selectedIncident) {
+      map.panTo({ lat: selectedIncident.lat, lng: selectedIncident.lng });
+      const currentZoom = map.getZoom() || 13;
+      if (currentZoom < 14) {
+        map.setZoom(14);
+      }
     }
-  }, [map, selectedIncident]);
+  }, [map, selectedIncident, focusedCrew]);
 
   return null;
 }
@@ -71,11 +135,22 @@ export function GoogleGridMap({
   onSelectIncident,
   gridAssets = [],
   crews = [],
+  onUpdateCrews,
+  onSelectCrew,
+  onDispatchCrew,
+  onStepCrewSimulation,
+  onResetCrews,
+  isSimulatingCrews = true,
+  onToggleSimulatingCrews,
+  crewSimSpeed = 1,
+  onChangeSimSpeed,
   onOpenReportModal,
   initialCenter = { lat: 12.9716, lng: 77.6408 },
   initialZoom = 13,
   height = '100%',
   showControlsBar = true,
+  showHeatmap: showHeatmapProp,
+  onToggleHeatmap,
 }: GoogleGridMapProps) {
   // Check for API key in environment or localStorage
   const envKey =
@@ -83,8 +158,14 @@ export function GoogleGridMap({
       ? (import.meta as any).env.VITE_GOOGLE_MAPS_API_KEY || ''
       : '';
   const [apiKey, setApiKey] = useState<string>(() => {
-    return envKey || localStorage.getItem('gmp_api_key') || '';
+    return envKey || (typeof localStorage !== 'undefined' ? localStorage.getItem('gmp_api_key') || '' : '');
   });
+
+  useEffect(() => {
+    if (envKey && apiKey !== envKey) {
+      setApiKey(envKey);
+    }
+  }, [envKey, apiKey]);
   const [keyInput, setKeyInput] = useState('');
   const [showKeyModal, setShowKeyModal] = useState(false);
 
@@ -92,8 +173,60 @@ export function GoogleGridMap({
   const [showRadii, setShowRadii] = useState(true);
   const [showAssets, setShowAssets] = useState(true);
   const [showCrews, setShowCrews] = useState(true);
+  const [showCrewRoutes, setShowCrewRoutes] = useState(true);
+  const [showFleetHud, setShowFleetHud] = useState(true);
   const [showReports, setShowReports] = useState(true);
   const [mapType, setMapType] = useState<'roadmap' | 'satellite' | 'hybrid' | 'terrain'>('roadmap');
+
+  // Real-time Fleet Telemetry & Inspection States
+  const [infoWindowCrew, setInfoWindowCrew] = useState<DispatchCrew | null>(null);
+  const [focusedCrew, setFocusedCrew] = useState<DispatchCrew | null>(null);
+  const [quickDispatchCrewId, setQuickDispatchCrewId] = useState<string>('crew-3');
+  const [quickDispatchIncidentId, setQuickDispatchIncidentId] = useState<string>('inc-103');
+
+  // Keep infoWindowCrew synced with live moving coordinates
+  useEffect(() => {
+    if (infoWindowCrew) {
+      const liveCrew = crews.find((c) => c.id === infoWindowCrew.id);
+      if (liveCrew) {
+        setInfoWindowCrew(liveCrew);
+      }
+    }
+  }, [crews]);
+
+  // Heatmap Layer Visibility & Configuration States
+  const [internalShowHeatmap, setInternalShowHeatmap] = useState(true);
+  const isHeatmapActive = typeof showHeatmapProp !== 'undefined' ? showHeatmapProp : internalShowHeatmap;
+  const handleToggleHeatmap = (val: boolean) => {
+    setInternalShowHeatmap(val);
+    onToggleHeatmap?.(val);
+  };
+
+  const [heatmapRadius, setHeatmapRadius] = useState<number>(36);
+  const [heatmapOpacity, setHeatmapOpacity] = useState<number>(0.8);
+  const [heatmapGradientPreset, setHeatmapGradientPreset] = useState<'thermal' | 'crimson' | 'neon'>('thermal');
+  const [heatmapWeightMode, setHeatmapWeightMode] = useState<'METERS' | 'EQUAL'>('METERS');
+  const [heatmapFilter, setHeatmapFilter] = useState<'ALL' | 'CRITICAL_HIGH' | 'HAZARDS_ONLY'>('ALL');
+  const [showHeatmapSettings, setShowHeatmapSettings] = useState<boolean>(false);
+
+  // Generate weighted geographical density points for Google Maps HeatmapLayer
+  const heatmapPoints = useMemo(() => {
+    return generateIncidentHeatmapPoints(incidents, gridAssets, {
+      weightMode: heatmapWeightMode,
+      includeCitizenReports: true,
+      includeStressedAssets: true,
+      includeHistoricalTelemetry: true,
+      filterSeverity: heatmapFilter,
+    });
+  }, [incidents, gridAssets, heatmapWeightMode, heatmapFilter]);
+
+  // Compute top incident density hotspots for the HUD legend
+  const topDensityHotspots = useMemo(() => {
+    return [...incidents]
+      .filter((i) => i.status !== 'RESTORED')
+      .sort((a, b) => b.affectedMeters - a.affectedMeters)
+      .slice(0, 3);
+  }, [incidents]);
 
   // Active InfoWindow target
   const [infoWindowIncident, setInfoWindowIncident] = useState<OutageIncident | null>(
@@ -194,6 +327,223 @@ export function GoogleGridMap({
               <span>Crews ({crews.length})</span>
             </button>
 
+            {/* Crew Route Vectors Toggle */}
+            <button
+              id="toggle-crew-routes-btn"
+              onClick={() => setShowCrewRoutes(!showCrewRoutes)}
+              className={`px-2 py-1 rounded text-[11px] font-semibold border transition cursor-pointer flex items-center gap-1 ${
+                showCrewRoutes
+                  ? 'bg-cyan-950 text-cyan-300 border-cyan-700'
+                  : 'bg-slate-900 text-slate-400 border-slate-800'
+              }`}
+              title="Toggle Live Crew Navigation Route Vectors"
+            >
+              <Navigation className="w-3 h-3 text-cyan-400" />
+              <span>Vectors</span>
+            </button>
+
+            {/* Fleet Telemetry HUD Toggle */}
+            <button
+              id="toggle-fleet-hud-btn"
+              onClick={() => setShowFleetHud(!showFleetHud)}
+              className={`px-2 py-1 rounded text-[11px] font-semibold border transition cursor-pointer flex items-center gap-1 ${
+                showFleetHud
+                  ? 'bg-emerald-950 text-emerald-300 border-emerald-600 ring-1 ring-emerald-500/30'
+                  : 'bg-slate-900 text-slate-400 border-slate-800'
+              }`}
+              title="Toggle Real-Time Crew Fleet HUD & Simulation Controls"
+            >
+              <Gauge className="w-3 h-3 text-emerald-400" />
+              <span>Fleet HUD</span>
+            </button>
+
+            {/* Google Maps Heatmap Layer Toggle & Settings */}
+            <div className="relative flex items-center">
+              <button
+                id="toggle-heatmap-btn"
+                onClick={() => handleToggleHeatmap(!isHeatmapActive)}
+                className={`px-2.5 py-1 rounded-l text-[11px] font-semibold border transition cursor-pointer flex items-center gap-1.5 shadow-sm ${
+                  isHeatmapActive
+                    ? 'bg-rose-950 text-rose-300 border-rose-600 shadow-rose-950/40 ring-1 ring-rose-500/30'
+                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                }`}
+                title="Toggle Google Maps Incident Density Heatmap Layer"
+              >
+                <Flame className={`w-3.5 h-3.5 ${isHeatmapActive ? 'text-rose-400 animate-pulse' : 'text-slate-500'}`} />
+                <span>Heatmap</span>
+                <span className={`text-[9px] px-1 py-0.2 rounded font-mono font-bold ${
+                  isHeatmapActive ? 'bg-rose-500/30 text-rose-200' : 'bg-slate-800 text-slate-500'
+                }`}>
+                  {isHeatmapActive ? 'ON' : 'OFF'}
+                </span>
+              </button>
+              <button
+                id="heatmap-settings-btn"
+                onClick={() => setShowHeatmapSettings(!showHeatmapSettings)}
+                className={`px-1.5 py-1 rounded-r border-t border-r border-b text-[11px] transition cursor-pointer flex items-center ${
+                  showHeatmapSettings
+                    ? 'bg-rose-900 text-rose-200 border-rose-600'
+                    : isHeatmapActive
+                    ? 'bg-rose-950 text-rose-300 border-rose-600 hover:bg-rose-900'
+                    : 'bg-slate-900 text-slate-400 border-slate-800 hover:bg-slate-800'
+                }`}
+                title="Configure Heatmap radius, opacity, palette & weighting"
+              >
+                <SlidersHorizontal className="w-3 h-3" />
+              </button>
+
+              {/* Heatmap Settings Popover */}
+              {showHeatmapSettings && (
+                <div className="absolute top-9 left-0 mt-1 w-72 bg-slate-950/95 border border-slate-800 rounded-xl p-3 shadow-2xl backdrop-blur z-50 text-slate-200 space-y-3 font-sans">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-white">
+                      <Flame className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Heatmap Configuration</span>
+                    </div>
+                    <button
+                      onClick={() => setShowHeatmapSettings(false)}
+                      className="text-slate-400 hover:text-white text-xs px-1 cursor-pointer"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  {/* Radius Slider */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-400">Diffusion Radius</span>
+                      <span className="font-mono text-cyan-400 font-bold">{heatmapRadius}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="15"
+                      max="60"
+                      value={heatmapRadius}
+                      onChange={(e) => setHeatmapRadius(Number(e.target.value))}
+                      className="w-full accent-cyan-500 cursor-pointer h-1.5 bg-slate-800 rounded"
+                    />
+                  </div>
+
+                  {/* Opacity Slider */}
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-slate-400">Layer Opacity</span>
+                      <span className="font-mono text-cyan-400 font-bold">{Math.round(heatmapOpacity * 100)}%</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="20"
+                      max="100"
+                      value={Math.round(heatmapOpacity * 100)}
+                      onChange={(e) => setHeatmapOpacity(Number(e.target.value) / 100)}
+                      className="w-full accent-cyan-500 cursor-pointer h-1.5 bg-slate-800 rounded"
+                    />
+                  </div>
+
+                  {/* Color Palette Presets */}
+                  <div className="space-y-1.5">
+                    <span className="text-slate-400 text-[11px] block">Thermal Palette Preset</span>
+                    <div className="grid grid-cols-3 gap-1">
+                      <button
+                        onClick={() => setHeatmapGradientPreset('thermal')}
+                        className={`px-2 py-1 rounded text-[10px] font-semibold border transition cursor-pointer text-center ${
+                          heatmapGradientPreset === 'thermal'
+                            ? 'bg-cyan-950 text-cyan-300 border-cyan-500 ring-1 ring-cyan-500/50'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        Thermal
+                      </button>
+                      <button
+                        onClick={() => setHeatmapGradientPreset('crimson')}
+                        className={`px-2 py-1 rounded text-[10px] font-semibold border transition cursor-pointer text-center ${
+                          heatmapGradientPreset === 'crimson'
+                            ? 'bg-rose-950 text-rose-300 border-rose-500 ring-1 ring-rose-500/50'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        Crimson
+                      </button>
+                      <button
+                        onClick={() => setHeatmapGradientPreset('neon')}
+                        className={`px-2 py-1 rounded text-[10px] font-semibold border transition cursor-pointer text-center ${
+                          heatmapGradientPreset === 'neon'
+                            ? 'bg-fuchsia-950 text-fuchsia-300 border-fuchsia-500 ring-1 ring-fuchsia-500/50'
+                            : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-white'
+                        }`}
+                      >
+                        Neon
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Weighting Mode */}
+                  <div className="space-y-1.5">
+                    <span className="text-slate-400 text-[11px] block">Incident Density Weighting</span>
+                    <div className="grid grid-cols-2 gap-1 text-[10px]">
+                      <button
+                        onClick={() => setHeatmapWeightMode('METERS')}
+                        className={`px-2 py-1 rounded font-semibold border transition cursor-pointer ${
+                          heatmapWeightMode === 'METERS'
+                            ? 'bg-cyan-950 text-cyan-300 border-cyan-500'
+                            : 'bg-slate-900 text-slate-400 border-slate-800'
+                        }`}
+                      >
+                        Meters-Weighted
+                      </button>
+                      <button
+                        onClick={() => setHeatmapWeightMode('EQUAL')}
+                        className={`px-2 py-1 rounded font-semibold border transition cursor-pointer ${
+                          heatmapWeightMode === 'EQUAL'
+                            ? 'bg-cyan-950 text-cyan-300 border-cyan-500'
+                            : 'bg-slate-900 text-slate-400 border-slate-800'
+                        }`}
+                      >
+                        Equal Weight
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Filter */}
+                  <div className="space-y-1.5 pt-1 border-t border-slate-800/80">
+                    <span className="text-slate-400 text-[11px] block">Density Filter</span>
+                    <div className="grid grid-cols-3 gap-1 text-[9px]">
+                      <button
+                        onClick={() => setHeatmapFilter('ALL')}
+                        className={`p-1 rounded font-semibold border transition cursor-pointer ${
+                          heatmapFilter === 'ALL'
+                            ? 'bg-slate-800 text-white border-cyan-500'
+                            : 'bg-slate-900 text-slate-400 border-slate-800'
+                        }`}
+                      >
+                        All Grid
+                      </button>
+                      <button
+                        onClick={() => setHeatmapFilter('CRITICAL_HIGH')}
+                        className={`p-1 rounded font-semibold border transition cursor-pointer ${
+                          heatmapFilter === 'CRITICAL_HIGH'
+                            ? 'bg-slate-800 text-white border-amber-500'
+                            : 'bg-slate-900 text-slate-400 border-slate-800'
+                        }`}
+                      >
+                        High/Crit
+                      </button>
+                      <button
+                        onClick={() => setHeatmapFilter('HAZARDS_ONLY')}
+                        className={`p-1 rounded font-semibold border transition cursor-pointer ${
+                          heatmapFilter === 'HAZARDS_ONLY'
+                            ? 'bg-slate-800 text-white border-rose-500'
+                            : 'bg-slate-900 text-slate-400 border-slate-800'
+                        }`}
+                      >
+                        Hazards
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* API Key / Demo Key Config Button */}
             <button
               id="gmp-key-settings-btn"
@@ -214,8 +564,8 @@ export function GoogleGridMap({
 
       {/* MAP CANVAS CONTAINER */}
       <div className="relative flex-1 w-full h-full min-h-[380px]">
-        {/* Render Google Maps using @vis.gl/react-google-maps */}
-        <APIProvider apiKey={apiKey}>
+        {apiKey ? (
+          <APIProvider apiKey={apiKey} libraries={GOOGLE_MAPS_LIBRARIES}>
           <Map
             id="gmp-main-map"
             mapId="DEMO_MAP_ID"
@@ -229,6 +579,16 @@ export function GoogleGridMap({
           >
             {/* Auto Camera Panning */}
             <MapCameraController selectedIncident={selectedIncident} />
+
+            {/* GOOGLE MAPS HEATMAP LAYER (HIGH-INCIDENT DENSITY) */}
+            {isHeatmapActive && (
+              <GoogleHeatmapLayer
+                points={heatmapPoints}
+                radius={heatmapRadius}
+                opacity={heatmapOpacity}
+                gradient={HEATMAP_GRADIENTS[heatmapGradientPreset]}
+              />
+            )}
 
             {/* 1,200m SPATIAL CLUSTERING RADII */}
             {showRadii &&
@@ -515,6 +875,112 @@ export function GoogleGridMap({
             )}
           </Map>
         </APIProvider>
+        ) : (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-slate-400 p-8 text-center space-y-4">
+            <div className="w-12 h-12 rounded-xl bg-cyan-950/60 border border-cyan-800/80 flex items-center justify-center text-cyan-400">
+              <Navigation className="w-6 h-6 animate-pulse" />
+            </div>
+            <div className="max-w-md">
+              <h3 className="text-white font-bold text-base mb-1">Connecting to Google Maps Grid</h3>
+              <p className="text-xs text-slate-400">
+                Initializing GIS spatial layer and Bengaluru electrical substation coordinates...
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* FLOATING HEATMAP DENSITY HUD & HOTSPOT ANALYZER */}
+        {isHeatmapActive && (
+          <div className="absolute top-4 left-4 z-20 pointer-events-none">
+            <div className="bg-slate-950/95 border border-rose-900/50 p-3 rounded-2xl backdrop-blur-md shadow-2xl pointer-events-auto w-68 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Flame className="w-4 h-4 text-rose-500 animate-pulse" />
+                  <span className="text-[11px] font-bold text-white uppercase tracking-wider">
+                    Incident Density
+                  </span>
+                </div>
+                <span className="text-[9px] px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-800 font-mono font-bold">
+                  {heatmapPoints.length} Points
+                </span>
+              </div>
+
+              {/* Gradient Spectrum Bar with Legend Labels */}
+              <div className="space-y-1">
+                <div className={`h-2.5 w-full rounded-full shadow-inner ${
+                  heatmapGradientPreset === 'crimson'
+                    ? 'bg-gradient-to-r from-yellow-300 via-orange-500 via-rose-600 to-rose-950'
+                    : heatmapGradientPreset === 'neon'
+                    ? 'bg-gradient-to-r from-purple-500 via-cyan-400 via-yellow-300 to-pink-500'
+                    : 'bg-gradient-to-r from-cyan-400 via-emerald-400 via-yellow-400 to-rose-600'
+                }`} />
+                <div className="flex justify-between text-[8px] font-mono text-slate-400">
+                  <span>Isolated</span>
+                  <span>Moderate Density</span>
+                  <span className="text-rose-400 font-bold">Critical Cluster</span>
+                </div>
+              </div>
+
+              {/* Top Density Hotspots */}
+              <div className="border-t border-slate-800/80 pt-2 space-y-1">
+                <div className="text-[9px] text-slate-400 font-bold uppercase tracking-wider flex items-center justify-between">
+                  <span>High-Incident Hotspots</span>
+                  <span className="text-cyan-400 font-mono">Affected</span>
+                </div>
+                {topDensityHotspots.map((h, i) => (
+                  <button
+                    key={h.id}
+                    onClick={() => onSelectIncident(h)}
+                    className="w-full flex items-center justify-between text-[10px] p-1.5 rounded-lg hover:bg-slate-900 border border-transparent hover:border-slate-800 transition cursor-pointer text-left"
+                    title={`Click to focus ${h.code}`}
+                  >
+                    <div className="flex items-center gap-1.5 truncate max-w-[170px]">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${
+                        i === 0
+                          ? 'bg-rose-500 animate-ping'
+                          : i === 1
+                          ? 'bg-amber-400'
+                          : 'bg-cyan-400'
+                      }`} />
+                      <span className="font-semibold text-slate-200 truncate">{h.locality.split(',')[0]}</span>
+                    </div>
+                    <span className="font-mono text-[9px] font-bold text-rose-300 shrink-0">
+                      {h.affectedMeters.toLocaleString()} mtr
+                    </span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Quick Slider Controls inside HUD */}
+              <div className="border-t border-slate-800/80 pt-2 space-y-1.5 text-[9px]">
+                <div className="flex items-center justify-between text-slate-400">
+                  <span>Radius: <strong className="text-cyan-300 font-mono">{heatmapRadius}px</strong></span>
+                  <span>Opacity: <strong className="text-cyan-300 font-mono">{Math.round(heatmapOpacity * 100)}%</strong></span>
+                </div>
+                <div className="grid grid-cols-2 gap-2">
+                  <input
+                    type="range"
+                    min="15"
+                    max="60"
+                    value={heatmapRadius}
+                    onChange={(e) => setHeatmapRadius(Number(e.target.value))}
+                    className="w-full accent-rose-500 cursor-pointer h-1 bg-slate-800 rounded"
+                    title="Adjust Heatmap Radius"
+                  />
+                  <input
+                    type="range"
+                    min="20"
+                    max="100"
+                    value={Math.round(heatmapOpacity * 100)}
+                    onChange={(e) => setHeatmapOpacity(Number(e.target.value) / 100)}
+                    className="w-full accent-rose-500 cursor-pointer h-1 bg-slate-800 rounded"
+                    title="Adjust Heatmap Opacity"
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* FLOATING HUD: TELEMETRY & SPATIAL SUMMARY */}
         <div className="absolute bottom-4 left-4 z-20 pointer-events-none">

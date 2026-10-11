@@ -4,7 +4,32 @@ export type OutageStatus = "TRIAGED" | "CREW_DISPATCHED" | "IN_PROGRESS" | "REST
 
 export type GridAssetType = "SUBSTATION" | "FEEDER_LINE" | "TRANSFORMER" | "POLE";
 
-export type UserRole = "user" | "admin";
+export type UserRole = "user" | "admin" | "crew";
+
+export type CrewFieldStatus =
+  | "EN_ROUTE"
+  | "ON_SITE"
+  | "FAULT_ISOLATED"
+  | "REPAIRS_ACTIVE"
+  | "HAZARDS_CLEARED"
+  | "READY_FOR_ENERGIZATION";
+
+export interface CrewStatusUpdate {
+  id: string;
+  incidentId: string;
+  incidentCode: string;
+  crewId: string;
+  crewName: string;
+  crewLead?: string;
+  timestamp: string;
+  fieldStatus: CrewFieldStatus;
+  notes: string;
+  hazardCleared: boolean;
+  estimatedMinutesRemaining?: number;
+  checklistCompleted?: string[];
+  submittedToAdmin: boolean;
+  adminAcknowledged?: boolean;
+}
 
 export interface AppUser {
   id: string;
@@ -17,6 +42,7 @@ export interface AppUser {
   badgeTitle?: string;
   phone?: string;
   assignedIssuesCount?: number;
+  assignedCrewId?: string;
 }
 
 export interface OutageIncident {
@@ -37,6 +63,11 @@ export interface OutageIncident {
   causeCategory?: string; // VEGETATION, EQUIPMENT_FAILURE, OVERLOAD, WEATHER
   customerReports?: CustomerReport[];
   assignedOfficerUsername?: string;
+  crewStatusUpdates?: CrewStatusUpdate[];
+  latestCrewStatus?: CrewFieldStatus;
+  resolvedAt?: string;
+  resolvedByAdmin?: string;
+  resolutionNotes?: string;
 }
 
 export interface CustomerReport {
@@ -75,6 +106,20 @@ export interface DispatchCrew {
   currentIncidentCode: string | null;
   lat?: number;
   lng?: number;
+  bearing?: number; // Heading angle 0-360 degrees
+  speedKmh?: number; // Vehicle velocity in km/h
+  targetIncidentId?: string; // Assigned incident ID
+  targetLocality?: string; // Target location description
+  targetLat?: number; // Target GPS latitude
+  targetLng?: number; // Target GPS longitude
+  distanceRemainingMeters?: number; // Live distance to target in meters
+  etaMinutes?: number; // Dynamic ETA in minutes
+  vehicleType?: string; // Vehicle category
+  vehiclePlate?: string; // Registration callsign
+  crewLead?: string; // Lead technician / foreman
+  crewMembers?: string[]; // Linemen names
+  lastGpsPing?: string; // Formatted timestamp
+  breadcrumbs?: Array<{ lat: number; lng: number }>; // Recent positions
 }
 
 export interface SpatialClusterResult {

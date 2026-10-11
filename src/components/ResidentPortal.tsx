@@ -302,6 +302,29 @@ export function ResidentPortal({
           <OutageStepper currentStatus={activeTicket.status} />
         </div>
 
+        {/* ADMIN RESOLUTION BANNER IF RESTORED */}
+        {activeTicket.status === 'RESTORED' && (
+          <div className="mb-4 p-4 rounded-2xl bg-emerald-950/40 border border-emerald-500/50 text-emerald-200 shadow-lg space-y-1">
+            <div className="flex items-center space-x-2 text-xs font-bold text-emerald-400">
+              <CheckCircle2 className="w-4 h-4" />
+              <span>OFFICIALLY RESOLVED & ENERGIZED BY ADMIN</span>
+              {activeTicket.resolvedAt && (
+                <span className="text-[10px] text-emerald-500 font-mono font-normal">
+                  • {activeTicket.resolvedAt}
+                </span>
+              )}
+            </div>
+            {activeTicket.resolutionNotes && (
+              <p className="text-xs text-slate-300 bg-slate-950/60 p-2.5 rounded-xl border border-emerald-900/40 leading-relaxed">
+                "{activeTicket.resolutionNotes}"
+              </p>
+            )}
+            <div className="text-[10px] text-slate-400 font-mono">
+              Signed off by: <span className="text-white font-semibold">{activeTicket.resolvedByAdmin || 'Senior Grid Controller'}</span>
+            </div>
+          </div>
+        )}
+
         {/* CREW DISPATCH INFO */}
         <div className="bg-slate-950/80 rounded-xl p-4 border border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4">
           <div className="flex items-center space-x-3">

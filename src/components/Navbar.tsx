@@ -14,13 +14,15 @@ import {
 import { AppUser } from '../types';
 
 interface NavbarProps {
-  activeTab: 'resident' | 'dispatcher';
-  setActiveTab: (tab: 'resident' | 'dispatcher') => void;
+  activeTab: 'resident' | 'dispatcher' | 'crew';
+  setActiveTab: (tab: 'resident' | 'dispatcher' | 'crew') => void;
   broadcastMessage: string;
   currentUser: AppUser | null;
   onLogout: () => void;
-  onOpenLogin: (role?: 'user' | 'admin') => void;
+  onOpenLogin: (role?: 'user' | 'admin' | 'crew') => void;
   onOpenUserManagement: () => void;
+  openProblemsCount?: number;
+  onReplayStartup?: () => void;
 }
 
 export function Navbar({
@@ -31,6 +33,8 @@ export function Navbar({
   onLogout,
   onOpenLogin,
   onOpenUserManagement,
+  openProblemsCount = 3,
+  onReplayStartup,
 }: NavbarProps) {
   const [showProfileMenu, setShowProfileMenu] = useState(false);
 
@@ -73,7 +77,8 @@ export function Navbar({
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>Resident</span>
+            <span className="hidden xs:inline">Resident</span>
+            <span className="xs:hidden">Hub</span>
           </button>
 
           <button
@@ -98,6 +103,27 @@ export function Navbar({
             {currentUser && !isAdmin && (
               <span className="text-[9px] bg-slate-800 text-amber-400 px-1 py-0.2 rounded font-mono hidden md:inline">
                 Admin
+              </span>
+            )}
+          </button>
+
+          <button
+            id="role-tab-crew"
+            onClick={() => setActiveTab('crew')}
+            className={`px-2.5 sm:px-3.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'crew'
+                ? 'bg-amber-600 text-white shadow-lg shadow-amber-600/30'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Dispatch Field Crew Operations & Problem Status Terminal"
+          >
+            <HardHat className="w-3.5 h-3.5" />
+            <span>Dispatch Crew</span>
+            {openProblemsCount > 0 && (
+              <span className={`text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-full ${
+                activeTab === 'crew' ? 'bg-amber-950 text-amber-200' : 'bg-slate-800 text-amber-400'
+              }`}>
+                {openProblemsCount}
               </span>
             )}
           </button>
@@ -192,6 +218,26 @@ export function Navbar({
                     </button>
 
                     <button
+                      id="menu-switch-crew"
+                      onClick={() => onOpenLogin('crew')}
+                      className="w-full text-left px-3 py-2 rounded-xl text-xs text-slate-200 hover:text-white hover:bg-slate-800 flex items-center gap-2 transition cursor-pointer"
+                    >
+                      <HardHat className="w-4 h-4 text-amber-400" />
+                      <span>Switch to Field Crew Member</span>
+                    </button>
+
+                    {onReplayStartup && (
+                      <button
+                        id="menu-replay-startup"
+                        onClick={onReplayStartup}
+                        className="w-full text-left px-3 py-2 rounded-xl text-xs text-cyan-300 hover:text-white hover:bg-slate-800 flex items-center gap-2 transition cursor-pointer"
+                      >
+                        <Zap className="w-4 h-4 text-cyan-400" />
+                        <span>Replay Startup Screen & Logo</span>
+                      </button>
+                    )}
+
+                    <button
                       id="menu-logout-btn"
                       onClick={onLogout}
                       className="w-full text-left px-3 py-2 rounded-xl text-xs text-rose-400 hover:bg-rose-500/10 flex items-center gap-2 transition cursor-pointer"
@@ -210,12 +256,19 @@ export function Navbar({
                 onClick={() => onOpenLogin('user')}
                 className="px-3 py-1.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-700 text-xs font-semibold text-slate-200 transition cursor-pointer"
               >
-                User Login
+                Resident Login
+              </button>
+              <button
+                id="header-btn-login-crew"
+                onClick={() => onOpenLogin('crew')}
+                className="px-2.5 py-1.5 rounded-xl bg-amber-950/60 hover:bg-amber-900/60 border border-amber-700/80 text-xs font-semibold text-amber-300 transition cursor-pointer hidden sm:inline-block"
+              >
+                Crew Login
               </button>
               <button
                 id="header-btn-login-admin"
                 onClick={() => onOpenLogin('admin')}
-                className="px-3 py-1.5 rounded-xl bg-amber-600 hover:bg-amber-500 text-xs font-bold text-white transition shadow-sm cursor-pointer"
+                className="px-3 py-1.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-xs font-bold text-white transition shadow-sm cursor-pointer"
               >
                 Admin Login
               </button>

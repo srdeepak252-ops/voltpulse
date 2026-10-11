@@ -28,13 +28,16 @@ import {
   Phone,
   Building,
   Shield,
-  MapPin
+  MapPin,
+  Flame,
+  X,
 } from 'lucide-react';
-import { OutageIncident, GridAsset, DispatchCrew, AppUser, CustomerReport } from '../types';
+import { OutageIncident, GridAsset, DispatchCrew, AppUser, CustomerReport, CrewStatusUpdate } from '../types';
 import { StatusBadge } from './ResidentPortal';
 import { GRID_ASSETS, DISPATCH_CREWS, BROADCAST_PRESETS } from '../data/mockData';
 import { AssignUsernameModal } from './AssignUsernameModal';
 import { GoogleGridMap } from './GoogleGridMap';
+import { AdminSolveProblemModal } from './AdminSolveProblemModal';
 
 interface DispatcherDashboardProps {
   incidents: OutageIncident[];
@@ -51,6 +54,14 @@ interface DispatcherDashboardProps {
     updatedResidentName?: string
   ) => void;
   onOpenUserDirectory: () => void;
+  onMarkProblemSolved?: (incidentId: string, resolutionNotes: string, broadcastMessage: string) => void;
+  onOpenCrewSection?: () => void;
+  currentUser?: AppUser | null;
+  latestCrewAlert?: {
+    incident: OutageIncident;
+    update: CrewStatusUpdate;
+  } | null;
+  onDismissCrewAlert?: () => void;
 }
 
 export function DispatcherDashboard({
@@ -63,6 +74,11 @@ export function DispatcherDashboard({
   users,
   onAssignUsername,
   onOpenUserDirectory,
+  onMarkProblemSolved,
+  onOpenCrewSection,
+  currentUser,
+  latestCrewAlert,
+  onDismissCrewAlert,
 }: DispatcherDashboardProps) {
   const [viewMode, setViewMode] = useState<'MAP' | 'REPORTS'>('MAP');
   const [filter, setFilter] = useState<string>('ALL');
@@ -72,6 +88,7 @@ export function DispatcherDashboard({
   );
   const [customEtr, setCustomEtr] = useState<string>('');
   const [showAssetOverlay, setShowAssetOverlay] = useState(true);
+  const [showHeatmap, setShowHeatmap] = useState(true);
   const [showBroadcastToast, setShowBroadcastToast] = useState(false);
   const [mapZoom, setMapZoom] = useState(1);
   const [mapEngine, setMapEngine] = useState<'GOOGLE_MAPS' | 'SCHEMATIC'>('GOOGLE_MAPS');
@@ -82,6 +99,9 @@ export function DispatcherDashboard({
     incidentCode: string;
     incidentId: string;
   } | null>(null);
+
+  // Admin Solve Problem modal state
+  const [isSolveModalOpen, setIsSolveModalOpen] = useState(false);
 
   // Filter state for citizen reported issues directory
   const [reportSearch, setReportSearch] = useState('');
@@ -216,7 +236,18 @@ export function DispatcherDashboard({
           </button>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center space-x-2 flex-wrap">
+          {onOpenCrewSection && (
+            <button
+              id="admin-btn-open-crew-terminal"
+              onClick={onOpenCrewSection}
+              className="px-3 py-2 rounded-xl bg-amber-950/50 hover:bg-amber-900/60 border border-amber-700/80 text-xs font-bold text-amber-300 transition flex items-center space-x-1.5 cursor-pointer"
+            >
+              <HardHat className="w-4 h-4 text-amber-400" />
+              <span>Dispatch Crew Section</span>
+            </button>
+          )}
+
           <button
             id="admin-btn-open-user-directory"
             onClick={onOpenUserDirectory}
@@ -237,6 +268,70 @@ export function DispatcherDashboard({
           </button>
         </div>
       </div>
+
+      {/* LIVE FIELD CREW STATUS REPORT ALERT (ADMIN ACTION BANNER) */}
+      {latestCrewAlert && (
+        <div
+          id="live-crew-alert-banner"
+          className="bg-gradient-to-r from-amber-950/90 via-[#0E1526] to-emerald-950/90 border-2 border-amber-500/80 rounded-2xl p-4 shadow-2xl flex flex-col md:flex-row items-center justify-between gap-4 animate-in slide-in-from-top-3 duration-300 relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/10 rounded-full blur-2xl pointer-events-none" />
+          <div className="flex items-center space-x-3.5 z-10">
+            <div className="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/50 flex items-center justify-center text-amber-300 shrink-0">
+              <Radio className="w-6 h-6 animate-pulse" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                  🚨 LIVE CREW REPORT RECEIVED
+                </span>
+                <span className="text-xs font-mono font-bold text-cyan-400">
+                  {latestCrewAlert.incident.code}
+                </span>
+                <span className="text-xs text-white font-semibold">
+                  {latestCrewAlert.incident.locality}
+                </span>
+                <span className="text-[10px] font-mono uppercase font-bold px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">
+                  Status: {latestCrewAlert.update.fieldStatus.replace(/_/g, ' ')}
+                </span>
+              </div>
+              <p className="text-xs text-slate-200 mt-1 font-medium">
+                Unit <span className="text-amber-300 font-bold">{latestCrewAlert.update.crewName}</span>
+                {latestCrewAlert.update.crewLead ? ` (${latestCrewAlert.update.crewLead})` : ''}: &ldquo;{latestCrewAlert.update.notes}&rdquo;
+                {latestCrewAlert.update.hazardCleared && (
+                  <span className="ml-2 text-emerald-400 font-bold">✓ Hazard Cleared</span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0 w-full md:w-auto justify-end z-10">
+            <button
+              id="btn-alert-mark-solved-now"
+              onClick={() => {
+                setSelectedIncident(latestCrewAlert.incident);
+                setIsSolveModalOpen(true);
+              }}
+              className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold shadow-lg shadow-emerald-900/40 flex items-center gap-2 transition cursor-pointer"
+              title="Admin immediate resolution upon crew report"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>⚡ Mark Problem Solved & Update Everyone</span>
+            </button>
+
+            {onDismissCrewAlert && (
+              <button
+                id="btn-dismiss-crew-alert"
+                onClick={onDismissCrewAlert}
+                className="text-slate-400 hover:text-white p-2 rounded-xl hover:bg-slate-800 transition cursor-pointer"
+                title="Dismiss notification"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* OPERATIONS KPI STATS */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -336,6 +431,27 @@ export function DispatcherDashboard({
                   </button>
                 </div>
 
+                {mapEngine === 'GOOGLE_MAPS' && (
+                  <button
+                    id="dispatcher-toggle-heatmap-btn"
+                    onClick={() => setShowHeatmap(!showHeatmap)}
+                    className={`px-2.5 py-1 rounded text-[11px] font-semibold border transition cursor-pointer flex items-center gap-1.5 shadow-sm ${
+                      showHeatmap
+                        ? 'bg-rose-950/80 text-rose-300 border-rose-600 shadow-rose-900/30 ring-1 ring-rose-500/20'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                    }`}
+                    title="Toggle Google Maps Incident Density Heatmap Layer"
+                  >
+                    <Flame className={`w-3.5 h-3.5 ${showHeatmap ? 'text-rose-400 animate-pulse' : 'text-slate-400'}`} />
+                    <span>Heatmap Layer</span>
+                    <span className={`text-[9px] font-mono font-bold px-1 py-0.2 rounded ${
+                      showHeatmap ? 'bg-rose-500/30 text-rose-200' : 'bg-slate-700 text-slate-400'
+                    }`}>
+                      {showHeatmap ? 'ACTIVE' : 'OFF'}
+                    </span>
+                  </button>
+                )}
+
                 {mapEngine === 'SCHEMATIC' && (
                   <button
                     id="toggle-asset-overlay-btn"
@@ -375,6 +491,8 @@ export function DispatcherDashboard({
                   crews={DISPATCH_CREWS}
                   height="100%"
                   showControlsBar={true}
+                  showHeatmap={showHeatmap}
+                  onToggleHeatmap={setShowHeatmap}
                 />
               </div>
             ) : (
@@ -687,6 +805,65 @@ export function DispatcherDashboard({
                 </div>
               </div>
 
+              {/* FIELD CREW LIVE STATUS UPDATES TO ADMIN */}
+              <div className="pt-3 border-t border-slate-800 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-1.5">
+                    <HardHat className="w-3.5 h-3.5 text-amber-400" />
+                    <span className="text-[11px] font-bold text-slate-300 uppercase tracking-wider">
+                      Field Crew Status Uplink ({selectedIncident.crewStatusUpdates?.length || 0})
+                    </span>
+                  </div>
+                  {onOpenCrewSection && (
+                    <button
+                      onClick={onOpenCrewSection}
+                      className="text-[10px] text-amber-400 hover:underline font-mono cursor-pointer"
+                    >
+                      Open Crew Terminal →
+                    </button>
+                  )}
+                </div>
+
+                {selectedIncident.crewStatusUpdates && selectedIncident.crewStatusUpdates.length > 0 ? (
+                  <div className="bg-amber-950/20 border border-amber-800/40 rounded-xl p-3 space-y-1.5">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="font-bold text-amber-300">
+                        {selectedIncident.crewStatusUpdates[selectedIncident.crewStatusUpdates.length - 1].crewLead ||
+                          selectedIncident.crewAssigned}
+                      </span>
+                      <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/30 uppercase font-bold">
+                        {selectedIncident.crewStatusUpdates[selectedIncident.crewStatusUpdates.length - 1].fieldStatus.replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-300 bg-slate-950/70 p-2 rounded-lg border border-slate-800/60 leading-relaxed">
+                      "{selectedIncident.crewStatusUpdates[selectedIncident.crewStatusUpdates.length - 1].notes}"
+                    </p>
+                    <div className="flex justify-between items-center text-[10px] text-slate-400 font-mono">
+                      <span>Reported: {selectedIncident.crewStatusUpdates[selectedIncident.crewStatusUpdates.length - 1].timestamp}</span>
+                      {selectedIncident.crewStatusUpdates[selectedIncident.crewStatusUpdates.length - 1].hazardCleared && (
+                        <span className="text-emerald-400 font-semibold">✓ Hazard Neutralized</span>
+                      )}
+                    </div>
+                    {selectedIncident.status !== 'RESTORED' && (
+                      <button
+                        id="btn-crew-quick-solve"
+                        onClick={() => setIsSolveModalOpen(true)}
+                        className="w-full mt-2 py-2 px-3 rounded-xl bg-emerald-600/90 hover:bg-emerald-500 text-white text-xs font-bold transition flex items-center justify-center space-x-1.5 shadow-md shadow-emerald-900/30 cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" />
+                        <span>Mark Problem Solved on this Crew Report</span>
+                      </button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-slate-950/40 border border-dashed border-slate-800 rounded-xl p-2.5 text-center">
+                    <p className="text-[11px] text-slate-500">
+                      No field reports sent yet. Dispatched unit can transmit live status from the Crew Section.
+                    </p>
+                  </div>
+                )}
+              </div>
+
               {/* CITIZEN REPORTED ISSUES & USERNAME ASSIGNMENT */}
               <div className="pt-3 border-t border-slate-800 space-y-2">
                 <div className="flex items-center justify-between">
@@ -810,17 +987,11 @@ export function DispatcherDashboard({
 
                 <button
                   id="btn-energize-grid"
-                  onClick={() =>
-                    onUpdateIncident({
-                      ...selectedIncident,
-                      status: 'RESTORED',
-                      etr: 'Grid Energized & Closed',
-                    })
-                  }
+                  onClick={() => setIsSolveModalOpen(true)}
                   className="w-full bg-emerald-600 shadow-lg shadow-emerald-900/30 py-3.5 rounded-xl text-xs font-bold text-white hover:bg-emerald-500 transition-all flex items-center justify-center space-x-2 cursor-pointer"
                 >
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Finalize Repair & Energize Grid</span>
+                  <span>Mark Problem as Solved & Update Everyone</span>
                 </button>
               </div>
             </div>
@@ -1080,6 +1251,28 @@ export function DispatcherDashboard({
             onAssignUsername(assignModalData.incidentId, reportId, newUsername, updatedResidentName);
             setAssignModalData(null);
           }}
+        />
+      )}
+
+      {/* ADMIN SOLVE PROBLEM & RESTORE GRID MODAL */}
+      {isSolveModalOpen && (
+        <AdminSolveProblemModal
+          incident={selectedIncident}
+          onClose={() => setIsSolveModalOpen(false)}
+          onConfirmSolve={(incId, notes, bcast) => {
+            if (onMarkProblemSolved) {
+              onMarkProblemSolved(incId, notes, bcast);
+            } else {
+              onUpdateIncident({
+                ...selectedIncident,
+                status: 'RESTORED',
+                etr: 'Grid Energized & Closed',
+                resolutionNotes: notes,
+              });
+              if (bcast) onBroadcastUpdate(bcast);
+            }
+          }}
+          currentUser={currentUser || null}
         />
       )}
     </div>
